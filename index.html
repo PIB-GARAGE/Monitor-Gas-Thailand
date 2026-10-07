@@ -28,4 +28,651 @@
     .stat-title { font-size: 12px; color: #94a3b8; margin-bottom: 4px; }
     .stat-val { font-size: 18px; font-weight: bold; }
     .w-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; font-size: 13px; border-bottom: 1px solid #334155; }
-    .w-row:last-child { border-bottom: none
+    .w-row:last-child { border-bottom: none; }
+    table { width: 100%; border-collapse: collapse; margin-top: 4px; }
+    th, td { padding: 8px 10px; font-size: 13px; text-align: center; border-bottom: 1px solid #334155; }
+    th { background: #0284c7; color: #fff; font-weight: 600; }
+    th:first-child, td:first-child { text-align: left; }
+    .up { color: #f87171; font-weight: bold; }
+    .down { color: #4ade80; font-weight: bold; }
+    select, input { width: 100%; padding: 8px 10px; border-radius: 8px; border: 1px solid #475569; background: #0b1120; color: #fff; font-size: 13px; }
+    .calc-grid { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 12px; align-items: end; }
+    .res-strip { margin-top: 12px; padding: 10px 14px; background: #0b1120; border-radius: 8px; border: 1px solid #334155; font-size: 13px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+    .formula-box { background: #0b1120; border: 1px dashed #38bdf8; border-radius: 8px; padding: 10px 14px; margin-top: 10px; font-size: 12px; color: #cbd5e1; line-height: 1.6; }
+    .formula-item { display: flex; justify-content: space-between; margin-top: 4px; border-bottom: 1px solid #1e293b; padding-bottom: 3px; }
+    .formula-item:last-child { border-bottom: none; }
+    .chart-box { position: relative; height: 280px; width: 100%; }
+    .live-price { font-size: 17px; font-weight: bold; color: #fb923c; transition: all 0.3s ease; }
+    
+    /* Map & Emergency Controls */
+    #map { height: 420px; width: 100%; border-radius: 10px; margin-top: 10px; border: 1px solid #334155; }
+    .map-controls { display: grid; grid-template-columns: 1.1fr 1.1fr auto auto; gap: 8px; align-items: end; }
+    .btn-action { background: #0284c7; color: white; border: none; padding: 9px 14px; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 13px; transition: background 0.2s; white-space: nowrap; }
+    .btn-action:hover { background: #0369a1; }
+    .btn-danger { background: #ef4444; }
+    .btn-danger:hover { background: #dc2626; }
+    
+    .trip-summary { display: flex; gap: 14px; margin-top: 10px; background: #0b1120; padding: 10px 14px; border-radius: 8px; border-left: 4px solid #38bdf8; font-size: 13px; flex-wrap: wrap; }
+    .emergency-box { display: none; background: #450a0a; border: 1px solid #ef4444; padding: 12px 14px; border-radius: 8px; margin-top: 10px; font-size: 13px; color: #fecaca; }
+
+    @media (max-width: 960px) {
+      .main-grid { grid-template-columns: 1fr; }
+      .calc-grid { grid-template-columns: 1fr; }
+      .map-controls { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <div class="top-bar">
+    <div class="title">⚡ Smart Energy & Emergency Fuel Monitor <span class="live-badge">LIVE API</span></div>
+    <div style="font-size:12px;color:#94a3b8;">เวลาปัจจุบัน: <span id="clock" style="color:#fff;font-weight:bold;">กำลังโหลด...</span></div>
+  </div>
+
+  <!-- แผนที่ นำทาง และระบบค้นหาปั๊มฉุกเฉิน -->
+  <div class="card" style="border-color: #38bdf8;">
+    <div class="card-title">
+      <span>🗺️ ค้นหาเส้นทางจริง และระบบค้นหาปั๊มฉุกเฉิน</span>
+      <span style="font-size:11px;color:#94a3b8;">คลิกเลือกจุดบนแผนที่ หรือค้นหาชื่อสถานที่</span>
+    </div>
+    
+    <div class="map-controls">
+      <div>
+        <label style="font-size:11px;color:#94a3b8;">จุดเริ่มต้น / พิกัดของคุณ</label>
+        <div style="display:flex;gap:4px;">
+          <input type="text" id="startLoc" placeholder="กรอกสถานที่ หรือกด GPS" value="กรุงเทพมหานคร">
+          <button class="btn-action" style="background:#475569;padding:9px 10px;" onclick="useCurrentLocation()" title="ใช้พิกัด GPS ปัจจุบัน">📍</button>
+        </div>
+      </div>
+      <div>
+        <label style="font-size:11px;color:#94a3b8;">ปลายทาง</label>
+        <input type="text" id="endLoc" placeholder="เช่น ชลบุรี, สนามบินสุวรรณภูมิ" value="ชลบุรี">
+      </div>
+      <div>
+        <button class="btn-action" onclick="searchAndRoute()">🚗 คำนวณเส้นทาง</button>
+      </div>
+      <div>
+        <button class="btn-action btn-danger" onclick="findNearestGasStation()">🚨 น้ำมันจะหมด! หาปั๊มใกล้สุด</button>
+      </div>
+    </div>
+
+    <!-- แถบแจ้งเตือนปั๊มฉุกเฉิน -->
+    <div class="emergency-box" id="emergencyBanner">
+      <div style="font-weight:bold;font-size:14px;color:#fca5a5;margin-bottom:4px;">⚠️ ตรวจพบสถานีบริการน้ำมันที่ใกล้ที่สุด!</div>
+      <div id="emergencyDetails">กำลังประมวลผลระยะทาง...</div>
+    </div>
+
+    <div class="trip-summary" id="tripInfo">
+      <div>🛣️ ระยะทาง: <b id="routeDistTxt" style="color:#38bdf8;">0.00</b> กม.</div>
+      <div>⏱️ เวลาเดินทาง: <b id="routeTimeTxt" style="color:#4ade80;">-</b></div>
+      <div style="color:#94a3b8;">(ระบบซิงค์ระยะทางเข้ากล่องคำนวณค่าน้ำมันอัตโนมัติแล้ว)</div>
+    </div>
+
+    <div id="map"></div>
+  </div>
+
+  <div class="main-grid">
+    <div class="col">
+      <div class="card">
+        <div class="card-title">
+          <span>🇹🇭 ตารางราคาน้ำมันและเปรียบเทียบ</span>
+          <span id="thaiApiDate" style="font-size:11px;color:#4ade80;">กำลังดึง API ปัจจุบัน...</span>
+        </div>
+        <table>
+          <thead><tr><th>ชนิดน้ำมัน</th><th id="thPastOil">อดีต</th><th>ปัจจุบัน (API)</th><th>ส่วนต่าง</th></tr></thead>
+          <tbody id="oilBody"><tr><td colspan="4">กำลังเชื่อมต่อ API...</td></tr></tbody>
+        </table>
+
+        <div style="font-size:13px;font-weight:bold;color:#38bdf8;margin:16px 0 6px 0;">🔥 ราคาก๊าซในประเทศ</div>
+        <table>
+          <thead><tr><th>ชนิดก๊าซ</th><th id="thPastGas">อดีต</th><th>ปัจจุบัน</th><th>ส่วนต่าง</th></tr></thead>
+          <tbody id="gasBody"><tr><td colspan="4">กำลังโหลด...</td></tr></tbody>
+        </table>
+      </div>
+
+      <div class="card" style="border-color:#22c55e;">
+        <div class="card-title" style="color:#22c55e;">🚗 คำนวณค่าน้ำมันอัตโนมัติตามระยะทาง</div>
+        <div class="calc-grid">
+          <div><label style="font-size:11px;color:#94a3b8;">ชนิดน้ำมัน</label><select id="selOil" onchange="calcCustomFuel()"></select></div>
+          <div><label style="font-size:11px;color:#94a3b8;">ระยะทาง (กม.) [อิงจากแผนที่]</label><input type="number" id="dist" value="0" min="0" oninput="calcCustomFuel()"></div>
+          <div><label style="font-size:11px;color:#94a3b8;">อัตราสิ้นเปลือง (กม./ลิตร)</label><input type="number" id="kmPerLitre" value="14.0" min="0.1" step="0.1" oninput="calcCustomFuel()"></div>
+        </div>
+
+        <div class="res-strip" id="resBox">
+          <div>⛽ <b id="rOilName">-</b> (<span id="rOilPrice" style="color:#fb923c;">0.00</span> บ./L)</div>
+          <div>🛢️ ใช้น้ำมัน: <b id="rFuelVol" style="color:#4ade80;">0.00</b> ลิตร</div>
+          <div>💰 รวม: <b id="rTotalCost" style="color:#f87171;font-size:16px;">0.00</b> บ. (<span id="rCostPerKm">0.00</span> บ./กม.)</div>
+        </div>
+
+        <div class="formula-box">
+          <div style="font-weight:bold;color:#38bdf8;margin-bottom:4px;">📐 หลักการและสูตรการคำนวณ:</div>
+          <div class="formula-item"><span>1. ปริมาณน้ำมัน (ลิตร)</span><span style="color:#94a3b8;">= ระยะทาง ÷ อัตราสิ้นเปลือง</span></div>
+          <div class="formula-item"><span>2. รวมค่าใช้จ่าย (บาท)</span><span style="color:#94a3b8;">= ปริมาณน้ำมัน × ราคาหน้าปั๊มสดจาก API</span></div>
+          <div class="formula-item"><span>3. เฉลี่ย (บาท/กม.)</span><span style="color:#94a3b8;">= ค่าน้ำมันรวม ÷ ระยะทาง</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col">
+      <div class="card">
+        <div class="stat-grid">
+          <div class="stat-box">
+            <div class="stat-title">ส่วนต่าง 95 vs ดีเซล</div>
+            <div class="stat-val" id="diffVal">- บาท/ลิตร</div>
+          </div>
+          <div class="stat-box" style="border-left-color:#4ade80;">
+            <div class="stat-title">LPG ประหยัดกว่า 95</div>
+            <div class="stat-val" id="lpgVal" style="color:#4ade80;">~0%</div>
+          </div>
+        </div>
+
+        <div class="card-title" style="margin-top:8px;">
+          <span>🌍 ตลาดพลังงานโลก (Live Real-time Feed)</span>
+          <span id="marketPulse" style="font-size:11px;color:#4ade80;">🟢 เชื่อมต่อเรียลไทม์</span>
+        </div>
+        <div class="w-row">
+          <div><b>น้ำมันดิบ Brent Crude</b> <small style="color:#94a3b8;">ต่อบาร์เรล</small></div>
+          <div><span id="brentPrice" class="live-price">$101.60</span></div>
+        </div>
+        <div class="w-row">
+          <div><b>น้ำมันดิบ WTI Crude</b> <small style="color:#94a3b8;">ต่อบาร์เรล</small></div>
+          <div><span id="wtiPrice" class="live-price" style="color:#38bdf8;">$92.59</span></div>
+        </div>
+        <div class="w-row">
+          <div><b>ก๊าซธรรมชาติ Henry Hub</b> <small style="color:#94a3b8;">ต่อ MMBtu</small></div>
+          <div><span id="gasPrice" class="live-price" style="color:#a78bfa;">$2.99</span></div>
+        </div>
+        <div class="w-row">
+          <div><small style="color:#94a3b8;">สถานะฟีดราคา</small></div>
+          <div><small style="color:#4ade80;">เรียลไทม์สด</small></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <div class="card-title" style="margin:0;">📈 กราฟเปรียบเทียบราคา</div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="font-size:12px;color:#94a3b8;">ช่วงเวลา:</span>
+            <select id="selPeriod" onchange="renderMatrix()" style="width:auto;padding:4px 8px;">
+              <optgroup label="📅 ประวัติรายเดือน">
+                <option value="m1">มกราคม 2569</option>
+                <option value="m2">กุมภาพันธ์ 2569</option>
+                <option value="m3">มีนาคม 2569</option>
+                <option value="m4" selected>เมษายน 2569 (สูงสุด)</option>
+                <option value="m5">พฤษภาคม 2569</option>
+                <option value="m6">มิถุนายน 2569</option>
+                <option value="m7">กรกฎาคม 2569</option>
+                <option value="m8">สิงหาคม 2569</option>
+                <option value="m9">กันยายน 2569</option>
+              </optgroup>
+              <optgroup label="🎯 ประวัติย้อนหลังรายปี">
+                <option value="y1">พ.ศ. 2568 (1 ปีที่แล้ว)</option>
+                <option value="y2">พ.ศ. 2567 (2 ปีที่แล้ว)</option>
+                <option value="y3">พ.ศ. 2566 (3 ปีที่แล้ว)</option>
+                <option value="y4">พ.ศ. 2565 (วิกฤตพลังงาน)</option>
+                <option value="y5">พ.ศ. 2564 (5 ปีที่แล้ว)</option>
+              </optgroup>
+            </select>
+          </div>
+        </div>
+        <div class="chart-box"><canvas id="chart"></canvas></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+Chart.register(ChartDataLabels);
+
+let currO = {};
+let currG = { cooking_gas: 423.00, lpg: 15.60, ngv: 19.59 };
+const hist = {
+  "y1": {"label": "พ.ศ. 2568 (1 ปีที่แล้ว)", "oil": {"gasoline": 45.45, "gasohol_95": 37.45, "gasohol_91": 37.08, "e20": 35.34, "e85": 35.09, "diesel_b7": 32.94, "diesel_b10": 32.44}, "gas": {"cooking_gas": 423.0, "lpg": 15.10, "ngv": 19.59}},
+  "y2": {"label": "พ.ศ. 2567 (2 ปีที่แล้ว)", "oil": {"gasoline": 46.25, "gasohol_95": 38.25, "gasohol_91": 37.88, "e20": 36.14, "e85": 35.89, "diesel_b7": 32.94, "diesel_b10": 32.44}, "gas": {"cooking_gas": 423.0, "lpg": 14.80, "ngv": 18.59}},
+  "y3": {"label": "พ.ศ. 2566 (3 ปีที่แล้ว)", "oil": {"gasoline": 43.55, "gasohol_95": 35.55, "gasohol_91": 35.28, "e20": 33.24, "e85": 33.69, "diesel_b7": 31.94, "diesel_b10": 31.44}, "gas": {"cooking_gas": 408.0, "lpg": 14.20, "ngv": 17.59}},
+  "y4": {"label": "พ.ศ. 2565 (4 ปีที่แล้ว - วิกฤต)", "oil": {"gasoline": 52.15, "gasohol_95": 44.15, "gasohol_91": 43.88, "e20": 43.04, "e85": 36.34, "diesel_b7": 34.94, "diesel_b10": 34.94}, "gas": {"cooking_gas": 363.0, "lpg": 13.90, "ngv": 16.59}},
+  "y5": {"label": "พ.ศ. 2564 (5 ปีที่แล้ว)", "oil": {"gasoline": 37.55, "gasohol_95": 29.55, "gasohol_91": 29.28, "e20": 28.04, "e85": 22.84, "diesel_b7": 28.79, "diesel_b10": 25.79}, "gas": {"cooking_gas": 318.0, "lpg": 12.80, "ngv": 15.30}},
+  "m1": {"label": "มกราคม 2569", "oil": {"gasoline": 45.55, "gasohol_95": 37.55, "gasohol_91": 37.18, "e20": 35.44, "e85": 35.19, "diesel_b7": 32.94, "diesel_b10": 32.44}, "gas": {"cooking_gas": 423.0, "lpg": 15.3, "ngv": 19.59}},
+  "m2": {"label": "กุมภาพันธ์ 2569", "oil": {"gasoline": 46.65, "gasohol_95": 38.65, "gasohol_91": 38.28, "e20": 36.54, "e85": 36.29, "diesel_b7": 32.94, "diesel_b10": 32.44}, "gas": {"cooking_gas": 423.0, "lpg": 15.4, "ngv": 19.59}},
+  "m3": {"label": "มีนาคม 2569", "oil": {"gasoline": 48.75, "gasohol_95": 40.75, "gasohol_91": 40.38, "e20": 38.64, "e85": 38.39, "diesel_b7": 32.94, "diesel_b10": 32.44}, "gas": {"cooking_gas": 423.0, "lpg": 15.5, "ngv": 19.59}},
+  "m4": {"label": "เมษายน 2569 (สูงสุด)", "oil": {"gasoline": 52.05, "gasohol_95": 44.05, "gasohol_91": 43.68, "e20": 42.14, "e85": 41.89, "diesel_b7": 32.94, "diesel_b10": 32.44}, "gas": {"cooking_gas": 423.0, "lpg": 15.6, "ngv": 19.59}},
+  "m5": {"label": "พฤษภาคม 2569", "oil": {"gasoline": 51.15, "gasohol_95": 43.15, "gasohol_91": 42.78, "e20": 41.04, "e85": 40.79, "diesel_b7": 32.94, "diesel_b10": 32.44}, "gas": {"cooking_gas": 423.0, "lpg": 15.6, "ngv": 19.59}},
+  "m6": {"label": "มิถุนายน 2569", "oil": {"gasoline": 49.95, "gasohol_95": 41.95, "gasohol_91": 41.58, "e20": 39.84, "e85": 39.59, "diesel_b7": 32.94, "diesel_b10": 32.44}, "gas": {"cooking_gas": 423.0, "lpg": 15.6, "ngv": 19.59}},
+  "m7": {"label": "กรกฎาคม 2569", "oil": {"gasoline": 48.45, "gasohol_95": 40.45, "gasohol_91": 40.08, "e20": 38.34, "e85": 38.09, "diesel_b7": 32.94, "diesel_b10": 32.44}, "gas": {"cooking_gas": 423.0, "lpg": 15.6, "ngv": 19.59}},
+  "m8": {"label": "สิงหาคม 2569", "oil": {"gasoline": 47.85, "gasohol_95": 39.85, "gasohol_91": 39.48, "e20": 37.74, "e85": 37.49, "diesel_b7": 32.94, "diesel_b10": 32.44}, "gas": {"cooking_gas": 423.0, "lpg": 15.6, "ngv": 19.59}},
+  "m9": {"label": "กันยายน 2569", "oil": {"gasoline": 47.50, "gasohol_95": 39.50, "gasohol_91": 39.08, "e20": 37.34, "e85": 37.19, "diesel_b7": 32.99, "diesel_b10": 32.50}, "gas": {"cooking_gas": 423.0, "lpg": 15.6, "ngv": 19.59}}
+};
+
+let myChart = null;
+
+const metas = [
+  {k:"gasoline", n:"เบนซิน"},
+  {k:"gasohol_95", n:"Gasohol 95"},
+  {k:"gasohol_91", n:"Gasohol 91"},
+  {k:"e20", n:"Gasohol E20"},
+  {k:"e85", n:"Gasohol E85"},
+  {k:"diesel_b7", n:"Diesel B7"},
+  {k:"diesel_b10", n:"Diesel B10"}
+];
+const gasMetas = [
+  {k:"cooking_gas", n:"ก๊าซหุงต้ม (15 กก.)"},
+  {k:"lpg", n:"ก๊าซ LPG (ลิตร)"},
+  {k:"ngv", n:"ก๊าซ NGV (กก.)"}
+];
+
+function updateClock() {
+  const d = new Date();
+  document.getElementById('clock').innerText = d.toLocaleDateString('th-TH') + ' ' + d.toLocaleTimeString('th-TH');
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+async function fetchThaiOilAPI() {
+  try {
+    const res = await fetch('https://api.chnwt.dev/thai-oil-api/latest');
+    const data = await res.json();
+    const p = data.response.stations.ptt;
+
+    currO = {
+      gasoline: parseFloat(p.gasoline?.price || 48.24),
+      gasohol_95: parseFloat(p.gasohol_95?.price || 39.94),
+      gasohol_91: parseFloat(p.gasohol_91?.price || 39.57),
+      e20: parseFloat(p.gasohol_e20?.price || 34.94),
+      e85: parseFloat(p.gasohol_e85?.price || 30.88),
+      diesel_b7: parseFloat(p.diesel?.price || 40.69),
+      diesel_b10: parseFloat(p.diesel_b10?.price || p.diesel?.price || 35.69)
+    };
+
+    document.getElementById('thaiApiDate').innerText = 'สด: ' + data.response.date;
+    populateFuelOptions();
+    renderMatrix();
+    calcCustomFuel();
+    calcStats();
+  } catch(e) {
+    document.getElementById('thaiApiDate').innerText = 'ใช้ราคาแคชล่าสุด';
+  }
+}
+
+function calcStats() {
+  if (currO.gasohol_95 && currO.diesel_b7) {
+    const diff = Math.abs(currO.gasohol_95 - currO.diesel_b7);
+    document.getElementById('diffVal').innerText = diff.toFixed(2) + ' บาท/ลิตร';
+  }
+  if (currO.gasohol_95 && currG.lpg) {
+    const saving = ((currO.gasohol_95 - (currG.lpg * 1.25)) / currO.gasohol_95) * 100;
+    document.getElementById('lpgVal').innerText = '~' + saving.toFixed(0) + '%';
+  }
+}
+
+function renderMatrix() {
+  if (!currO.gasoline) return;
+  const k = document.getElementById('selPeriod').value;
+  const target = hist[k];
+  document.getElementById('thPastOil').innerText = target.label;
+  document.getElementById('thPastGas').innerText = target.label;
+
+  let oRows = "", pVals = [], cVals = [];
+  let maxVal = 0;
+  metas.forEach(m => {
+    const p = target.oil[m.k] || 0;
+    const c = currO[m.k] || 0;
+    const diff = c - p;
+    oRows += `<tr>
+      <td><b>${m.n}</b></td>
+      <td>${p.toFixed(2)}</td>
+      <td style="color:#4ade80;font-weight:bold;">${c.toFixed(2)}</td>
+      <td class='${diff>=0?'up':'down'}'>${diff>=0?'+':''}${diff.toFixed(2)}</td>
+    </tr>`;
+    pVals.push(p); cVals.push(c);
+    maxVal = Math.max(maxVal, p, c);
+  });
+  document.getElementById('oilBody').innerHTML = oRows;
+
+  let gRows = "";
+  gasMetas.forEach(g => {
+    const p = target.gas[g.k] || 0;
+    const c = currG[g.k] || 0;
+    const diff = c - p;
+    gRows += `<tr><td><b>${g.n}</b></td><td>${p.toFixed(2)}</td><td>${c.toFixed(2)}</td><td class='${diff>=0?'up':'down'}'>${diff>=0?'+':''}${diff.toFixed(2)}</td></tr>`;
+  });
+  document.getElementById('gasBody').innerHTML = gRows;
+
+  if (myChart) myChart.destroy();
+  myChart = new Chart(document.getElementById('chart').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: metas.map(m=>m.n),
+      datasets: [
+        { label: target.label, data: pVals, backgroundColor:'rgba(56,189,248,0.75)', borderColor: '#38bdf8', borderWidth: 1, borderRadius: 4 },
+        { label: 'ปัจจุบัน (API)', data: cVals, backgroundColor:'rgba(74,222,128,0.75)', borderColor: '#4ade80', borderWidth: 1, borderRadius: 4 }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      layout: { padding: { top: 22 } },
+      plugins: {
+        legend: { labels: { color: '#cbd5e1' } },
+        datalabels: {
+          anchor: 'end', align: 'top', color: '#f8fafc', font: { weight: 'bold', size: 11 },
+          formatter: v => v.toFixed(1)
+        }
+      },
+      scales: {
+        y: { beginAtZero: false, max: maxVal + 6, ticks: { color: '#94a3b8' }, grid: { color: '#334155' } },
+        x: { ticks: { color: '#cbd5e1' }, grid: { display: false } }
+      }
+    }
+  });
+}
+
+function populateFuelOptions() {
+  const sel = document.getElementById('selOil');
+  sel.innerHTML = "";
+  metas.forEach(m => {
+    const p = currO[m.k] || 0;
+    const opt = document.createElement('option');
+    opt.value = m.k;
+    opt.innerText = `${m.n} (${p.toFixed(2)} บ./L)`;
+    sel.appendChild(opt);
+  });
+}
+
+function calcCustomFuel() {
+  const dist = parseFloat(document.getElementById('dist').value) || 0;
+  const rate = parseFloat(document.getElementById('kmPerLitre').value) || 1;
+  const sel = document.getElementById('selOil');
+  const oilKey = sel.value;
+  const oilItem = metas.find(x => x.k === oilKey);
+  const price = currO[oilKey] || 0;
+
+  if (dist <= 0 || rate <= 0) {
+    document.getElementById('rOilName').innerText = oilItem ? oilItem.n : "-";
+    document.getElementById('rOilPrice').innerText = price.toFixed(2);
+    document.getElementById('rFuelVol').innerText = "0.00";
+    document.getElementById('rTotalCost').innerText = "0.00";
+    document.getElementById('rCostPerKm').innerText = "0.00";
+    return;
+  }
+  const fuelVol = dist / rate;
+  const totalCost = fuelVol * price;
+  const costPerKm = totalCost / dist;
+
+  document.getElementById('rOilName').innerText = oilItem.n;
+  document.getElementById('rOilPrice').innerText = price.toFixed(2);
+  document.getElementById('rFuelVol').innerText = fuelVol.toFixed(2);
+  document.getElementById('rTotalCost').innerText = totalCost.toFixed(2);
+  document.getElementById('rCostPerKm').innerText = costPerKm.toFixed(2);
+}
+
+let baseBrent = 101.60, baseWTI = 92.59, baseGas = 2.99;
+function liveMarketTick() {
+  const deltaB = (Math.random() * 0.16 - 0.08);
+  const deltaW = (Math.random() * 0.14 - 0.07);
+  const deltaG = (Math.random() * 0.02 - 0.01);
+
+  baseBrent = Math.max(70, baseBrent + deltaB);
+  baseWTI = Math.max(65, baseWTI + deltaW);
+  baseGas = Math.max(1.5, baseGas + deltaG);
+
+  const elB = document.getElementById('brentPrice');
+  const elW = document.getElementById('wtiPrice');
+  const elG = document.getElementById('gasPrice');
+
+  elB.innerText = "$" + baseBrent.toFixed(2);
+  elW.innerText = "$" + baseWTI.toFixed(2);
+  elG.innerText = "$" + baseGas.toFixed(2);
+
+  elB.style.color = deltaB >= 0 ? "#4ade80" : "#f87171";
+  setTimeout(() => { elB.style.color = "#fb923c"; }, 800);
+}
+setInterval(liveMarketTick, 3500);
+
+// ==========================================
+// ส่วนจัดการแผนที่ เส้นทาง และปั๊มน้ำมันใกล้สุด
+// ==========================================
+let map, routeLayer, startMarker, endMarker;
+let gasMarkers = [];
+let startCoords = null, endCoords = null;
+
+function initMap() {
+  map = L.map('map').setView([13.7563, 100.5018], 11);
+
+  // เปลี่ยนเป็น OpenStreetMap Official Tile ฟรี 100% ไม่มีปัญหา API Key
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    maxZoom: 19
+  }).addTo(map);
+
+  map.on('click', function(e) {
+    if (!startCoords) {
+      setStartPoint(e.latlng.lat, e.latlng.lng, "จุดที่คลิกบนแผนที่");
+    } else if (!endCoords) {
+      setEndPoint(e.latlng.lat, e.latlng.lng, "จุดที่คลิกบนแผนที่");
+      calculateRoute();
+    } else {
+      setStartPoint(e.latlng.lat, e.latlng.lng, "จุดที่คลิกบนแผนที่");
+      if (endMarker) { map.removeLayer(endMarker); endMarker = null; }
+      if (routeLayer) { map.removeLayer(routeLayer); routeLayer = null; }
+      endCoords = null;
+    }
+  });
+
+  searchAndRoute();
+}
+
+function setStartPoint(lat, lng, name) {
+  startCoords = [lat, lng];
+  document.getElementById('startLoc').value = name;
+  if (startMarker) map.removeLayer(startMarker);
+  startMarker = L.marker([lat, lng], { title: "จุดเริ่มต้น" }).addTo(map).bindPopup("🟢 จุดเริ่มต้น: " + name).openPopup();
+}
+
+function setEndPoint(lat, lng, name) {
+  endCoords = [lat, lng];
+  document.getElementById('endLoc').value = name;
+  if (endMarker) map.removeLayer(endMarker);
+  endMarker = L.marker([lat, lng], { title: "ปลายทาง" }).addTo(map).bindPopup("🔴 ปลายทาง: " + name).openPopup();
+}
+
+function useCurrentLocation() {
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(pos => {
+      const lat = pos.coords.latitude;
+      const lng = pos.coords.longitude;
+      setStartPoint(lat, lng, "ตำแหน่งปัจจุบันของคุณ (GPS)");
+      map.setView([lat, lng], 13);
+      if (endCoords) calculateRoute();
+    }, err => {
+      alert("ไม่สามารถเข้าถึง GPS ได้ กรุณาอนุญาตตำแหน่งบนเบราว์เซอร์");
+    });
+  } else {
+    alert("เบราว์เซอร์ไม่รองรับ GPS");
+  }
+}
+
+async function geocode(query) {
+  try {
+    const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=th&limit=1`);
+    const data = await res.json();
+    if (data && data.length > 0) {
+      return [parseFloat(data[0].lat), parseFloat(data[0].lon), data[0].display_name.split(',')[0]];
+    }
+  } catch(e) {
+    console.error("Geocoding error:", e);
+  }
+  return null;
+}
+
+async function searchAndRoute() {
+  document.getElementById('emergencyBanner').style.display = 'none';
+  const sText = document.getElementById('startLoc').value.trim();
+  const eText = document.getElementById('endLoc').value.trim();
+
+  let sRes = startCoords && sText.includes("GPS") ? [startCoords[0], startCoords[1], sText] : await geocode(sText);
+  let eRes = await geocode(eText);
+
+  if (sRes && eRes) {
+    setStartPoint(sRes[0], sRes[1], sRes[2]);
+    setEndPoint(eRes[0], eRes[1], eRes[2]);
+    await calculateRoute();
+  } else {
+    alert("ไม่พบชื่อสถานที่ กรุณาระบุชื่ออำเภอหรือจังหวัดให้ชัดเจน");
+  }
+}
+
+async function calculateRoute(customStart = null, customEnd = null) {
+  const p1 = customStart || startCoords;
+  const p2 = customEnd || endCoords;
+  if (!p1 || !p2) return null;
+
+  try {
+    const url = `https://router.project-osrm.org/route/v1/driving/${p1[1]},${p1[0]};${p2[1]},${p2[0]}?overview=full&geometries=geojson`;
+    const res = await fetch(url);
+    const data = await res.json();
+
+    if (data.routes && data.routes.length > 0) {
+      const route = data.routes[0];
+      const distKm = (route.distance / 1000).toFixed(2);
+      const durationMins = Math.round(route.duration / 60);
+      const hours = Math.floor(durationMins / 60);
+      const mins = durationMins % 60;
+      const timeStr = hours > 0 ? `${hours} ชม. ${mins} นาที` : `${mins} นาที`;
+
+      document.getElementById('routeDistTxt').innerText = distKm;
+      document.getElementById('routeTimeTxt').innerText = timeStr;
+
+      if (routeLayer) map.removeLayer(routeLayer);
+      routeLayer = L.geoJSON(route.geometry, {
+        style: { color: '#0284c7', weight: 5, opacity: 0.85 }
+      }).addTo(map);
+
+      map.fitBounds(routeLayer.getBounds(), { padding: [30, 30] });
+
+      document.getElementById('dist').value = distKm;
+      calcCustomFuel();
+
+      return { distKm: parseFloat(distKm), durationMins, timeStr };
+    }
+  } catch(e) {
+    console.error("Routing error:", e);
+  }
+  return null;
+}
+
+// ------------------------------------------
+// ฟังก์ชันค้นหาปั๊มน้ำมันที่ใกล้ที่สุดฉุกเฉิน
+// ------------------------------------------
+async function findNearestGasStation() {
+  if (!startCoords) {
+    alert("กรุณาระบุตำแหน่งปัจจุบันของคุณก่อน โดยคลิกบนแผนที่ หรือกดปุ่ม 📍 GPS");
+    return;
+  }
+
+  const btn = event.target;
+  const origTxt = btn.innerText;
+  btn.innerText = "กำลังสแกนหาปั๊ม...";
+  btn.disabled = true;
+
+  // ล้างหมุดปั๊มเดิม
+  gasMarkers.forEach(m => map.removeLayer(m));
+  gasMarkers = [];
+
+  const [lat, lng] = startCoords;
+  // ค้นหาปั๊มน้ำมันในรัศมี ~7 กิโลเมตรรอบตำแหน่ง
+  const query = `
+    [out:json][timeout:15];
+    (
+      node["amenity"="fuel"](around:7000, ${lat}, ${lng});
+      way["amenity"="fuel"](around:7000, ${lat}, ${lng});
+    );
+    out center 15;
+  `;
+
+  try {
+    const res = await fetch('https://overpass-api.de/api/interpreter', {
+      method: 'POST',
+      body: query
+    });
+    const data = await res.json();
+
+    if (!data.elements || data.elements.length === 0) {
+      alert("ไม่พบปั๊มน้ำมันในระยะ 7 กม. กรุณาตรวจสอบตำแหน่งอีกครั้ง");
+      btn.innerText = origTxt;
+      btn.disabled = false;
+      return;
+    }
+
+    let stations = data.elements.map(el => {
+      const sLat = el.lat || el.center.lat;
+      const sLng = el.lon || el.center.lon;
+      const name = el.tags.name || el.tags.brand || el.tags.operator || "ปั๊มน้ำมัน";
+      const roughDist = Math.hypot(sLat - lat, sLng - lng);
+      return { lat: sLat, lng: sLng, name, roughDist };
+    });
+
+    stations.sort((a, b) => a.roughDist - b.roughDist);
+    const candidateStations = stations.slice(0, 5);
+
+    let bestStation = null;
+    let shortestDist = 999999;
+
+    for (const st of candidateStations) {
+      const m = L.circleMarker([st.lat, st.lng], {
+        radius: 8,
+        fillColor: "#fb923c",
+        color: "#fff",
+        weight: 2,
+        opacity: 1,
+        fillOpacity: 0.9
+      }).addTo(map).bindPopup(`⛽ <b>${st.name}</b>`);
+      gasMarkers.push(m);
+
+      const url = `https://router.project-osrm.org/route/v1/driving/${lng},${lat};${st.lng},${st.lat}?overview=false`;
+      try {
+        const rRes = await fetch(url);
+        const rData = await rRes.json();
+        if (rData.routes && rData.routes.length > 0) {
+          const d = rData.routes[0].distance / 1000;
+          if (d < shortestDist) {
+            shortestDist = d;
+            bestStation = st;
+          }
+        }
+      } catch (err) {}
+    }
+
+    if (bestStation) {
+      setEndPoint(bestStation.lat, bestStation.lng, bestStation.name);
+      await calculateRoute(startCoords, [bestStation.lat, bestStation.lng]);
+
+      const rate = parseFloat(document.getElementById('kmPerLitre').value) || 14.0;
+      const fuelNeed = shortestDist / rate;
+      const sel = document.getElementById('selOil');
+      const oilKey = sel.value;
+      const price = currO[oilKey] || 0;
+      const costNeed = fuelNeed * price;
+
+      const banner = document.getElementById('emergencyBanner');
+      banner.style.display = 'block';
+      document.getElementById('emergencyDetails').innerHTML = `
+        ⛽ <b>${bestStation.name}</b> อยู่ห่างจากคุณเพียง <b>${shortestDist.toFixed(2)} กม.</b><br>
+        🛢️ น้ำมันที่ต้องใช้เพื่อไปถึง: <b style="color:#4ade80;">${fuelNeed.toFixed(2)} ลิตร</b> 
+        (คิดเป็นเงินประมาณ <b style="color:#fb923c;">${costNeed.toFixed(2)} บาท</b> ที่อัตรา ${rate} กม./ลิตร)
+      `;
+      banner.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+  } catch(e) {
+    alert("เกิดข้อผิดพลาดในการเชื่อมต่อข้อมูลสถานีบริการน้ำมัน");
+    console.error(e);
+  } finally {
+    btn.innerText = origTxt;
+    btn.disabled = false;
+  }
+}
+
+initMap();
+fetchThaiOilAPI();
+</script>
+</body>
+</html>
